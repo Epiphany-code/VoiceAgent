@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceAgent</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f0f2f5; height: 100vh; margin: 0; display: flex; flex-direction: column; }
+        
+        .header { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); padding: 15px; text-align: center; font-weight: 600; font-size: 17px; box-shadow: 0 1px 0px rgba(0,0,0,0.05); z-index: 10; position: sticky; top: 0; }
+        
+        .chat-container { 
+            flex: 1; 
+            overflow-y: auto; 
+            overflow-x: hidden;
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            scroll-behavior: smooth; 
+            -webkit-overflow-scrolling: touch; 
+            
+            width: 100%;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            padding-left: max(20px, calc(25vw - 170px));
+            padding-right: max(20px, calc(25vw - 170px));
+            
+            box-sizing: border-box;
+        }
+        
+        .message { 
+            max-width: 85%;
+            padding: 12px 16px; 
+            border-radius: 18px; 
+            font-size: 15px; 
+            line-height: 1.5; 
+            position: relative; 
+            animation: fadeIn 0.3s ease; 
+            word-wrap: break-word; 
+        }
+
+        .message.user { 
+            align-self: flex-end; /* 靠右对齐（贴着右侧 padding） */
+            background: #007aff; 
+            color: #fff; 
+            border-bottom-right-radius: 4px; 
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2); 
+            margin-right: 0; /* 清除之前的 margin hack */
+        }
+        
+        .message.agent { 
+            align-self: flex-start; /* 靠左对齐（贴着左侧 padding） */
+            background: #fff; 
+            color: #1d1d1f; 
+            border-bottom-left-radius: 4px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04); 
+            margin-left: 0; /* 清除之前的 margin hack */
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .thought-container { align-self: flex-start; max-width: 90%; font-size: 12px; color: #86868b; margin-left: 5px; margin-bottom: -5px; }
+        .thought-header { cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; transition: color 0.2s; }
+        .thought-header:hover { color: #1d1d1f; }
+        .thought-header::before { content: '▸'; display: inline-block; transition: transform 0.2s; font-family: monospace; font-size: 14px; }
+        .thought-container.open .thought-header::before { transform: rotate(90deg); }
+        .thought-content { display: none; margin-top: 6px; padding: 10px; background: #f5f5f7; border-radius: 8px; font-family: "SF Mono", Menlo, monospace; white-space: pre-wrap; border: 1px solid rgba(0,0,0,0.05); line-height: 1.4; }
+        .thought-container.open .thought-content { display: block; animation: slideDown 0.2s ease; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .latency-tag { font-size: 10px; color: #999; margin-top: 4px; text-align: right; opacity: 0.7; font-feature-settings: "tnum"; }
+        
+        .footer { background: #fff; padding: 15px 20px; box-shadow: 0 -1px 0 rgba(0,0,0,0.05); z-index: 20; position: relative; }
+        .footer-content { display: flex; align-items: center; gap: 12px; max-width: 680px; margin: 0 auto; width: 100%; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+        .footer-content.recording-mode { justify-content: center; }
+
+        .input-group { flex: 1; display: flex; background: #f2f2f7; border-radius: 22px; padding: 4px 16px; transition: all 0.3s ease; transform-origin: center; }
+        .input-group.hidden { display: none; opacity: 0; width: 0; padding: 0; margin: 0; }
+
+        input { flex: 1; border: none; background: transparent; padding: 10px 0; outline: none; font-size: 16px; color: #1d1d1f; }
+        input::placeholder { color: #86868b; }
+        
+        #voice-btn { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; border: none; background: #f2f2f7; cursor: pointer; display: flex; justify-content: center; align-items: center; color: #1d1d1f; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); -webkit-tap-highlight-color: transparent; }
+        #voice-btn:active { transform: scale(0.92); }
+        #voice-btn:hover { background: #e5e5ea; }
+        #voice-btn.recording { background: #ff3b30; color: #fff; transform: scale(1.1); box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); }
+        #voice-btn.preparing { background: #ff9f0a; color: #fff; transform: scale(1.05); animation: breathe 1s infinite alternate; }
+        @keyframes breathe { from { opacity: 0.8; } to { opacity: 1; } }
+        #voice-btn.recording svg, #voice-btn.preparing svg { fill: #fff; }
+        #voice-btn svg { width: 22px; height: 22px; fill: currentColor; transition: fill 0.2s; }
+        
+        .preview-bubble { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%) scale(0.9); background: rgba(0, 122, 255, 0.95); backdrop-filter: blur(10px); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 15px; box-shadow: 0 8px 24px rgba(0, 122, 255, 0.25); opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); white-space: nowrap; max-width: 80%; overflow: hidden; text-overflow: ellipsis; z-index: 100; }
+        .preview-bubble.active { opacity: 1; transform: translateX(-50%) scale(1); }
+        .preview-bubble.exiting { opacity: 0; transform: translateX(-50%) translateY(-30px) scale(0.9); transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+        .status-toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); color: #fff; padding: 8px 16px; border-radius: 24px; font-size: 13px; font-weight: 500; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 6px; }
+        .status-toast.show { opacity: 1; }
+        .status-toast.error { background: rgba(255, 59, 48, 0.9); }
+    </style>
+</head>
+<body>
+    <div class="header">VoiceAgent</div>
+    <div class="status-toast" id="status">系统连接中...</div>
+    <div class="chat-container" id="chat"></div>
+    <div class="footer">
+        <div id="preview-bubble" class="preview-bubble">正在聆听...</div>
+        <div class="footer-content" id="footer-content">
+            <div class="input-group" id="input-group">
+                <input type="text" id="text-input" placeholder="输入消息..." autocomplete="off">
+            </div>
+            <button id="voice-btn" title="点击录音">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+<script>
+    let ws, processor, input, globalStream;
+    let isRecording = false;
+    
+    // --- 音频播放核心控制类 ---
+    class AudioScheduler {
+        constructor() {
+            this.nextStartTime = 0;
+            this.gainNode = null;
+            this.ctx = null;
+            this.activeSources = [];
+        }
+
+        init() {
+            if (!this.ctx) {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.gainNode = this.ctx.createGain();
+                this.gainNode.gain.value = 0.8; 
+                this.gainNode.connect(this.ctx.destination);
+            }
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+            return this.ctx;
+        }
+
+        playChunk(buf) {
+            const ctx = this.init();
+            const now = ctx.currentTime;
+            
+            const pcm16 = new Int16Array(buf);
+            const float32 = new Float32Array(pcm16.length);
+            for(let i=0; i<pcm16.length; i++) float32[i] = pcm16[i] / 32768;
+
+            // --- 核心修复：仅在冷启动时淡入 ---
+            if (this.nextStartTime < now) {
+                this.nextStartTime = now + 0.05;
+                const fadeLength = 1200; // 50ms at 24kHz
+                for (let i = 0; i < fadeLength && i < float32.length; i++) {
+                    float32[i] *= (i / fadeLength);
+                }
+            } 
+
+            const buffer = ctx.createBuffer(1, float32.length, 24000);
+            buffer.getChannelData(0).set(float32);
+
+            const src = ctx.createBufferSource();
+            src.buffer = buffer;
+            src.connect(this.gainNode);
+
+            this.activeSources.push(src);
+            src.onended = () => {
+                const index = this.activeSources.indexOf(src);
+                if (index > -1) this.activeSources.splice(index, 1);
+            };
+
+            src.start(this.nextStartTime);
+            this.nextStartTime += buffer.duration;
+        }
+        
+        reset() {
+            this.nextStartTime = 0;
+        }
+
+        stop() {
+            this.activeSources.forEach(src => {
+                try { src.stop(); } catch(e) {}
+            });
+            this.activeSources = [];
+
+            if (this.ctx && this.gainNode) {
+                this.gainNode.gain.cancelScheduledValues(this.ctx.currentTime);
+                this.gainNode.gain.value = 0.8;
+            }
+            this.nextStartTime = 0;
+        }
+    }
+
+    const audioScheduler = new AudioScheduler();
+    const btn = document.getElementById('voice-btn');
+    const status = document.getElementById('status');
+    const chat = document.getElementById('chat');
+    const previewBubble = document.getElementById('preview-bubble');
+    const inputGroup = document.getElementById('input-group');
+    const footerContent = document.getElementById('footer-content');
+    let currentStreamMsgId = null;
+
+    function connect() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${proto}//${location.host}/ws`);
+        ws.binaryType = 'arraybuffer';
+        ws.onopen = () => { showStatus("系统在线"); status.classList.remove('error'); };
+        ws.onclose = () => { showStatus("连接断开，重连中...", true); setTimeout(connect, 2000); };
+        ws.onerror = (e) => { console.error("WS Error:", e); showStatus("连接发生错误", true); };
+        ws.onmessage = (e) => {
+            if (typeof e.data === 'string') handleJson(JSON.parse(e.data));
+            else audioScheduler.playChunk(e.data);
+        };
+    }
+
+    function handleJson(msg) {
+        if (msg.type === 'status') {
+            showStatus(translateState(msg.state));
+            if (msg.state === 'idle') {
+                resetRecordingUI();
+                audioScheduler.reset();
+            }
+        }
+        else if (msg.type === 'chat_user_temp') updatePreviewBubble(msg.text);
+        else if (msg.type === 'chat_user') animatePreviewToChat(msg.text);
+        else if (msg.type === 'thought' || msg.type === 'tool') addThoughtLog(msg.type, msg.content, msg.name);
+        else if (msg.type === 'chat_agent_start') startAgentStreamMsg(msg.latency);
+        else if (msg.type === 'chat_agent_stream') updateAgentStreamMsg(msg.text);
+        else if (msg.type === 'chat_agent') {
+            if (!currentStreamMsgId) addAgentMsg(msg.text, msg.latency);
+        }
+    }
+
+    function translateState(s) {
+        const map = {'idle': '空闲', 'recognizing': '正在识别...', 'thinking': '思考中...', 'speaking': '回复中...'};
+        return map[s] || s;
+    }
+
+    function startAgentStreamMsg(latencyInfo) {
+        const div = document.createElement('div');
+        div.className = 'message agent';
+        currentStreamMsgId = 'agent-msg-' + Date.now();
+        div.id = currentStreamMsgId;
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'msg-content';
+        div.appendChild(contentSpan);
+        if (latencyInfo) {
+            const lat = document.createElement('div');
+            lat.className = 'latency-tag';
+            lat.innerText = `⚡ ${latencyInfo}`; 
+            div.appendChild(lat);
+        }
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function updateAgentStreamMsg(text) {
+        if (!currentStreamMsgId) return;
+        const div = document.getElementById(currentStreamMsgId);
+        if (div) {
+            div.querySelector('.msg-content').innerText += text;
+            chat.scrollTop = chat.scrollHeight;
+        }
+    }
+
+    function updatePreviewBubble(text) {
+        if (!text) return;
+        previewBubble.innerText = text;
+        if (!previewBubble.classList.contains('active')) previewBubble.classList.add('active');
+    }
+
+    function animatePreviewToChat(finalText) {
+        if (!finalText) { resetRecordingUI(); return; }
+        previewBubble.classList.add('exiting');
+        setTimeout(() => {
+            const destMsg = document.createElement('div');
+            destMsg.className = 'message user';
+            destMsg.innerText = finalText;
+            destMsg.style.animation = 'fadeInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards';
+            chat.appendChild(destMsg);
+            chat.scrollTop = chat.scrollHeight;
+        }, 200);
+        setTimeout(() => {
+            resetRecordingUI();
+            previewBubble.classList.remove('active', 'exiting');
+            previewBubble.innerText = "正在聆听...";
+            previewBubble.style = '';
+        }, 600);
+    }
+
+    function resetRecordingUI() {
+        isRecording = false;
+        btn.classList.remove('recording', 'preparing');
+        inputGroup.classList.remove('hidden');
+        footerContent.classList.remove('recording-mode');
+        previewBubble.classList.remove('active', 'exiting');
+        previewBubble.innerText = "正在聆听..."; 
+        previewBubble.style = '';
+    }
+
+    async function toggleRecord() { isRecording ? stopRecord() : startRecord(); }
+
+    async function startRecord() {
+        audioScheduler.stop();
+        if (!ws || ws.readyState !== WebSocket.OPEN) { showStatus("服务器未连接，无法录音", true); return; }
+        const ctx = audioScheduler.init();
+        btn.classList.add('preparing'); showStatus("正在启动麦克风...");
+        try {
+            globalStream = await navigator.mediaDevices.getUserMedia({audio: true});
+            input = ctx.createMediaStreamSource(globalStream);
+            processor = ctx.createScriptProcessor(4096, 1, 1);
+            input.connect(processor);
+            processor.connect(ctx.destination);
+            ws.send(JSON.stringify({type: "start_recording"}));
+            isRecording = true;
+            btn.classList.remove('preparing'); btn.classList.add('recording');
+            inputGroup.classList.add('hidden'); footerContent.classList.add('recording-mode');
+            previewBubble.innerText = "聆听中..."; previewBubble.classList.add('active'); showStatus("正在录音...");
+            const ratio = ctx.sampleRate / 16000;
+            processor.onaudioprocess = (e) => {
+                if (!isRecording || ws.readyState !== WebSocket.OPEN) return;
+                const inputData = e.inputBuffer.getChannelData(0);
+                const outLen = Math.floor(inputData.length / ratio);
+                const pcm = new Int16Array(outLen);
+                for (let i=0; i<outLen; i++) {
+                    const s = Math.max(-1, Math.min(1, inputData[Math.floor(i*ratio)]));
+                    pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+                ws.send(pcm.buffer);
+            };
+        } catch(e) { 
+            console.error(e); resetRecordingUI();
+            let msg = e.name === 'NotAllowedError' ? "麦克风权限被拒绝" : (e.name === 'NotFoundError' ? "未找到麦克风设备" : "无法访问麦克风");
+            showStatus(msg + ": " + e.message, true);
+        }
+    }
+
+    function stopRecord() {
+        if (globalStream) globalStream.getTracks().forEach(t => t.stop());
+        if (processor) { processor.disconnect(); input.disconnect(); }
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type: "stop_recording"}));
+    }
+
+    function showStatus(text, isError = false) {
+        status.innerText = text; status.classList.add('show');
+        status.classList.toggle('error', isError);
+        const duration = isError ? 4000 : 2000;
+        if (['正在识别...', '思考中...', '回复中...', '正在录音...'].includes(text)) return;
+        setTimeout(() => status.classList.remove('show'), duration);
+    }
+
+    function addThoughtLog(type, content, name) {
+        const container = document.createElement('div');
+        container.className = 'thought-container';
+        const header = document.createElement('div');
+        header.className = 'thought-header';
+        header.innerText = name || '思考过程'; 
+        const body = document.createElement('div');
+        body.className = 'thought-content';
+        try { if (typeof content === 'object') content = JSON.stringify(content, null, 2); } catch(e){}
+        body.innerText = content;
+        header.onclick = () => container.classList.toggle('open');
+        container.appendChild(header); container.appendChild(body);
+        chat.appendChild(container); chat.scrollTop = chat.scrollHeight;
+    }
+
+    function addAgentMsg(text, latencyInfo) {
+        const div = document.createElement('div'); div.className = 'message agent'; div.innerText = text;
+        if (latencyInfo) {
+            const lat = document.createElement('div'); lat.className = 'latency-tag'; lat.innerText = `⚡ ${latencyInfo}`; div.appendChild(lat);
+        }
+        chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
+    }
+
+    btn.onclick = toggleRecord;
+    document.getElementById('text-input').onkeypress = (e) => {
+        if (e.key === 'Enter') {
+            const val = e.target.value.trim();
+            if (val) {
+                audioScheduler.stop();
+                if (!ws || ws.readyState !== WebSocket.OPEN) { showStatus("服务器未连接", true); return; }
+                const div = document.createElement('div'); div.className = 'message user'; div.innerText = val;
+                chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
+                ws.send(JSON.stringify({type: "text_input", text: val})); e.target.value = '';
+            }
+        }
+    };
+
+    connect();
+</script>
+</body>
+</html>
