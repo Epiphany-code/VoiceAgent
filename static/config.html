@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置 - VoiceAgent</title>
+    <link rel="stylesheet" href="/css/config.css">
+</head>
+<body>
+    <div class="header">
+        <h1>VoiceAgent 配置</h1>
+        <div class="header-actions">
+            <button class="btn-icon theme-toggle" title="切换主题">☀️</button>
+            <button class="btn btn-secondary" id="back-to-chat">返回</button>
+            <button class="btn btn-primary" id="save-config">保存配置</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 配置容器并排布局 -->
+        <div class="config-grid">
+            <!-- 提供商配置 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">模型提供商配置</h2>
+                </div>
+
+                <!-- SiliconFlow 配置 -->
+                <div class="provider-section">
+                    <div class="provider-name">
+                        SiliconFlow (云端) <span class="badge badge-cloud">CLOUD</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Key</label>
+                        <input type="password" class="form-input" id="siliconflow-api-key" placeholder="sk-...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Base URL</label>
+                        <input type="text" class="form-input" id="siliconflow-base-url" placeholder="https://api.siliconflow.cn/v1">
+                    </div>
+                    <button class="btn-test" id="test-siliconflow">测试连接</button>
+                </div>
+
+                <!-- 本地模型配置 -->
+                <div class="provider-section">
+                    <div class="provider-name">
+                        本地模型 (LM Studio / Ollama) <span class="badge badge-local">LOCAL</span>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Key (可选)</label>
+                        <input type="password" class="form-input" id="local-api-key" placeholder="某些本地服务需要">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Base URL</label>
+                        <input type="text" class="form-input" id="local-base-url" placeholder="http://localhost:1234/v1">
+                    </div>
+                    <button class="btn-test" id="test-local">测试连接</button>
+                </div>
+            </div>
+
+            <!-- Agent 配置 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Agent 模型配置</h2>
+                </div>
+                <div id="agent-configs">
+                    <!-- Agent 配置将通过 JS 动态生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="hint">
+            配置修改后需要重启服务才能生效
+        </div>
+    </div>
+
+    <script src="/js/config.js"></script>
+</body>
+</html>

@@ -2,7 +2,6 @@ from langchain_core.tools import tool
 from langchain_core.prompts import ChatPromptTemplate
 from core.llm import get_llm
 from typing import Optional
-import os
 
 @tool
 def ask_schedule(location: str, date: str, weather_info: str, preferences: str = "") -> str:
@@ -15,9 +14,7 @@ def ask_schedule(location: str, date: str, weather_info: str, preferences: str =
     if not weather_info: missing.append("天气")
     if missing: return f"缺失信息：{', '.join(missing)}"
 
-    # 优化1：稍微降低温度，提高生成确定性和速度
-    temp = float(os.getenv("MODEL_SCHEDULE_TEMP", 0.5)) 
-    llm = get_llm(temperature=temp)
+    llm = get_llm(agent_name="schedule")
     
     # 优化2：精简 Prompt，要求“大纲式”输出，减少 Token 数量，从而减少生成时间
     system_prompt = """

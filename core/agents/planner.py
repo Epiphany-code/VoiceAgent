@@ -3,7 +3,6 @@ from core.llm import get_llm
 from core.state import AgentState
 from core.agents.weather import ask_weather
 from core.agents.schedule import ask_schedule
-import os
 
 # 导出工具列表供 Workflow 使用
 PLANNER_TOOLS = [ask_weather, ask_schedule]
@@ -20,10 +19,7 @@ def filter_recent_messages(messages, turns=5):
 
 def planner_node(state: AgentState):
     # 使用 Planner 专用模型配置
-    model_name = os.getenv("MODEL_PLANNER", "Qwen/Qwen2.5-32B-Instruct")
-    temp = float(os.getenv("MODEL_PLANNER_TEMP", 0.1))
-    
-    llm = get_llm(model_name=model_name, temperature=temp)
+    llm = get_llm(agent_name="planner")
     
     # 绑定工具
     llm_with_tools = llm.bind_tools(PLANNER_TOOLS)

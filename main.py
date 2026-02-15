@@ -5,11 +5,12 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from backend.websocket_server import router as websocket_router
+from backend.config_api import router as config_router
 from dotenv import load_dotenv
 
 # 3. 日志配置
 logging.basicConfig(
-    level=logging.INFO, 
+    level=logging.INFO,
     format='%(asctime)s [%(name)s] [%(levelname)s] %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -29,6 +30,9 @@ app.add_middleware(
 
 # 注册 WebSocket 路由
 app.include_router(websocket_router)
+
+# 注册配置 API 路由
+app.include_router(config_router, prefix="/api/config", tags=["config"])
 
 # favicon 路由（防止 404 日志）
 @app.get("/favicon.ico", include_in_schema=False)

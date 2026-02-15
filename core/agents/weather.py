@@ -1,8 +1,8 @@
-import os
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 from core.tools.bridge import MCPBridge
 from core.llm import get_llm
+import os
 
 # Path to weather server
 # 假设 weather_server.py 在项目根目录的 tools/ 文件夹下
@@ -18,9 +18,7 @@ async def ask_weather(query: str) -> str:
     async with MCPBridge(WEATHER_SERVER_PATH) as bridge:
         # 获取 MCP 工具 (get_weather 等)
         tools = await bridge.get_langchain_tools()
-        temp = float(os.getenv("MODEL_WEATHER_TEMP", 0.1))
-
-        llm = get_llm(temperature=temp)
+        llm = get_llm(agent_name="weather")
         
         # 创建微型 ReAct Agent (Weather Expert)
         # 这个 Agent 负责思考如何使用 MCP 工具来回答 query
