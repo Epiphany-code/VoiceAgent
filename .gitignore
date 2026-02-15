@@ -19,3 +19,4 @@ venv/
 *.sqlite3
 
 # 你可以根据实际情况补充更多
+CLAUDE.md
